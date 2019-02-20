@@ -19,19 +19,36 @@ Load the data
 movies = read.csv("movie_budgets.txt", sep = " ")
 ```
 
-Apply transformation on budget
+Transform budget to log scale
 ```{r}
 movies$log_budget <- log10(movies$budget)
 ```
 
-
+Plot *ggpairs* for all 3 vars
 ```{r}
 ggpairs(movies, columns = c("log_budget", "length", "year"))
 ```
 
-Obvious takeaways so far:
-  - length and budget seem to be highly correlated and *might be* following a linear relationship
-  - Most of the movies in the dataset are ~90 minutes long and were released in the year 2000
-  - Relationships of year with length and budget are not clear
-  
+Takeaways:
+  - length and budget seem to be highly correlated and *might be* following a linear relationship.
+  - Most of the movies in the dataset are ~90 minutes long and were released in the year 2000.
+  - Relationships of year with length and budget are not clear.
+
+Facet by year
+```{r}
+# unique(movies[order(movies$year), "year"])
+# names(movies)
+fac_year = rep(NA, nrow(movies))
+fac_year[movies$year < 1960] = "1906-1960"
+# fac_year[movies$year >= 1930 & movies$year < 1960] = "1930-1960"
+# fac_year[movies$year >= 1960 & movies$year < 1990] = "1960-1990"
+fac_year[movies$year >= 1960] = "1960-2005"
+movies2 = data.frame(movies, fac_year)
+ggpairs(movies2, columns = c("log_budget", "length", "year"), aes(color = fac_year))
+```
+
+Takeaways:
+  - Older movies (prior to 1960) have a much lesser variance in their lengths as compared to the newer movies (post 1960).
+  - Older movies did not have as high budgets as the newer ones.
+
 
