@@ -91,10 +91,16 @@ movies.predict = predict(movies.lm, newdata = movies.grid)
 movies.grid.df = data.frame(movies.grid, fit = as.vector(movies.predict))
 ```
 
-```{r}
+```{r, include = FALSE}
 # Visualise the model
 ggplot(movies.grid.df, aes(x = year, y = fit, group = fac_length, color = fac_length)) +
   geom_line() + labs(title = "Movie budget fit conditional on length") +
   scale_color_manual(values = cb_palette)
+```
+
+```{r, include = FALSE}
+# Plot the residuals
+ggplot(movies.lm.df, aes(x = year, y = .resid)) + geom_smooth() +
+  facet_wrap(~fac_length) + labs(title = "Residual plot")
 ```
 
