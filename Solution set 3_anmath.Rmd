@@ -30,12 +30,6 @@ movies$log_budget <- log10(movies$budget)
 ggpairs(movies, columns = c("log_budget", "length", "year"))
 ```
 
-Takeaways:
-  - Movie budgets and lengths seem to be correlated and might be following a linear relationship.
-  - Relationship between budget and year seem to be non-linear.
-  - Most of the movies in the dataset are ~90 minutes long and were released in the year 2000.
-  - Interaction between year and length is not clear.
-
 ```{r, include=FALSE}
 ## Color trivariate plots by year
 # unique(movies[order(movies$year), "year"])
@@ -55,7 +49,6 @@ fac_length[movies$length >= 100] = "long"
 movies3 = data.frame(movies, fac_length)
 ggpairs(movies3, columns = c("log_budget", "length", "year"), aes(color = fac_length))
 ```
-Short movies seem to have smaller budgets as compared to the long movies, which makes sense.
 
 
 ```{r, include=FALSE}
@@ -75,7 +68,12 @@ ggplot(movies3, aes(x = year, y = log_budget)) + geom_point() +
   # facet_wrap(~ cut_number(length, n = 2), ncol = 2) +
   labs(title = "Movie budgets vs. year cut by length")
 ```
-Clearly, we need to model the interactions above as the slope of the left panel is higher than the right panel.
+
+• Coplots cut by year follow similar trends and do not showcase anything interesting.
+• Conditional plots faceted by length of movies show that the increase in budget over the years has been much sharper for long movies (more than 100 minutes) than short movies (less than 100 minutes). Hence, we need to account for this interaction in our model.
+• The budget of movies seem to follow a linear trend with year, hence we will be fitting a linear model to predict log10(budget) from year.
+• The dataset does not have any major outliers. Hence, we will be fitting a least squares model (no need for a robust fit).
+• There does not seem to be any interaction between year and length of movies.
 
 ```{r}
 # Fit two separate linear models for *short* and *long* movies to predict budget from year
@@ -91,12 +89,15 @@ movies.predict = predict(movies.lm, newdata = movies.grid)
 movies.grid.df = data.frame(movies.grid, fit = as.vector(movies.predict))
 ```
 
-```{r, include = FALSE}
+# Solution 2
+
+```{r}
 # Visualise the model
 ggplot(movies.grid.df, aes(x = year, y = fit, group = fac_length, color = fac_length)) +
   geom_line() + labs(title = "Movie budget fit conditional on length") +
   scale_color_manual(values = cb_palette)
 ```
+While it is obvious that the budget of movies have increased over the years, this increase has been much sharper for longer movies (more than 100 minutes long) than for shorter movies (less than 100 minutes long).
 
 ```{r, include = FALSE}
 # Plot the residuals
