@@ -19,7 +19,7 @@ Load the data
 movies = read.csv("movie_budgets.txt", sep = " ")
 ```
 
-Transform budget to log scale
+Transform movie budgets to log scale
 ```{r}
 movies$log_budget <- log10(movies$budget)
 ```
@@ -30,11 +30,12 @@ ggpairs(movies, columns = c("log_budget", "length", "year"))
 ```
 
 Takeaways:
-  - length and budget seem to be highly correlated and *might be* following a linear relationship.
+  - Movie lengths and budgets seem to be correlated and *might be* following a linear relationship.
+  - Maximum values of movie budgets seem to be increasing with year
   - Most of the movies in the dataset are ~90 minutes long and were released in the year 2000.
-  - Relationships of year with length and budget are not clear.
+  - Interaction between year and length is not clear.
 
-Facet by year
+Color trivariate plots by year
 ```{r}
 # unique(movies[order(movies$year), "year"])
 # names(movies)
@@ -47,8 +48,15 @@ movies2 = data.frame(movies, fac_year)
 ggpairs(movies2, columns = c("log_budget", "length", "year"), aes(color = fac_year))
 ```
 
-Takeaways:
+Takeaways (first plot in the middle row):
   - Older movies (prior to 1960) have a much lesser variance in their lengths as compared to the newer movies (post 1960).
   - Older movies did not have as high budgets as the newer ones.
 
+Plot movie budgets against their lengths faceted by year
+```{r}
+ggplot(movies2, aes(x = length, y = log_budget)) + geom_point() +
+  geom_smooth(method = "loess", span = 1, method.args = list(degree = 1)) +
+  facet_wrap(~ cut_number(year, n = 4), ncol = 2) +
+  labs(title = "Movie budgets vs. lengths cut by year")
+```
 
