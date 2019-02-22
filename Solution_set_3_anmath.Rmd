@@ -1,7 +1,7 @@
 ---
 title: "Solution set 3"
 author: "Ankit Mathur"
-date: "2/17/2019"
+date: "2/22/2019"
 output:
   pdf_document: default
   html_document: default
@@ -95,26 +95,29 @@ movies3 = data.frame(movies, fac_length)
 
 movies.lo = loess(log_budget ~ year * fac_length, span = 0.97,
                   family = "gaussian", data = movies3)
-# movies.lo.df = augment(movies.lo)
+movies.lo.df = augment(movies.lo)
 
 movies.grid = expand.grid(year = seq(1905, 2005, 1), fac_length =
                             c(1, 2, 3))
+
 # movies.predict = predict(movies.lm, newdata = movies.grid)
 movies.predict = predict(movies.lo, newdata = movies.grid)
 movies.grid.df = data.frame(movies.grid, fit = as.vector(movies.predict))
 ```
 
-I have fitted a locally libear loess model on the given dataset to predict the log value of movie budgets (to the base 10) from their year conditioned on their length. The thresholds for conditioning on length have been set at 90 minutes and 120 minutes, thereby categorizing movies into *short* (<90 minutes), *medium* (90-120 minutes), and *long* (>120 minutes). Below I have mentioned the reasoning behind my modeling choices in choronological order of the steps I followed to fit the model:
+I have fitted a locally linear loess model on the given dataset to predict the log value of movie budgets (to the base 10) from their year conditioned on their length. The thresholds for conditioning on length have been set at 90 minutes and 120 minutes, thereby categorizing movies into *short* (<90 minutes), *medium* (90-120 minutes), and *long* (>120 minutes). Below I have mentioned the reasoning behind my modeling choices in choronological order of the steps I followed to fit the model:
 
-• The bivarate plots showcased that budget$1$ seemed to follow a linear trend with length and had high correlation (0.634). Furthermore, low correlation value (-0.08) for length vs. year was a strong hint that there might no interaction between these variables.
+• The bivarate plots showcased that budget$^1$ seemed to follow a linear trend with length and had high correlation (0.634). Furthermore, low correlation value (-0.08) for length vs. year was a strong hint that there might be no interaction between these variables.
 
-• The bivariate plot between budget and year was *almost* linear until 1994, post which it seemed to flatten out a bit. This coincides with the first professional use of camcorder for making movies, which was way cheaper than using the video cameras.
+• The bivariate plot between budget and year was *almost* linear until 1994, post which it seemed to drop sharply. This coincides with the first professional use of camcorder for making movies, which was way cheaper than using the video cameras, and hence makes sense.
 
-• The trivariate plot between budget, year, and length demonstrated that longer movies have higher budgets than shorter ones, which intuitively makes sense.
+• The trivariate plot between budget, year, and length demonstrated that longer movies have higher budgets than shorter ones, which is quite obvious.
 
 • The conditional plots faceted by length exhibited lines of very different slopes - flat for shorter movies and steep for longer movies. This interaction had to be accounted for in our model. Moreover, coplots by year did not showcase anything interesting.
 
-• Finally, I fitted an ordinary least squares linear model and a locally linear loess model with year on the x-axis and budget on the y-axis conditioned on length (to account for the interactions seen previously) and looked at their residual plots. While both the residual plots demonstrated homoskedasticity, the residuals for the loess model were much lesser than those for the OLS model. Hence, I went ahead with the loess fit for predicting movies budgets from year and length.
+• Finally, I fitted an ordinary least squares linear model and a locally linear loess model with year on the x-axis and budget on the y-axis conditioned on length (to account for the interactions seen previously) and looked at their residual plots. While both sets of residual plots demonstrated homoskedasticity, the absolute values of residuals for the loess model were much lesser than those for the OLS model. Hence, I went ahead with the loess fit for predicting movie budgets from year and length.
+
+• After experimenting with multiple values of span for the loess model, I chose the value of 0.97 to ensure maximum smoothing without jeopardizing any trends observed in the model.
 
 $^1$*Technically, log value of budget to the base 10. But for the sake of simplicity in the discussion, I have ignored mentioning the term "log value" repeatedly.*
 
@@ -128,18 +131,17 @@ levels(movies.grid.df$fac_length) <- c("short", "medium", "long")
 ggplot(movies.grid.df, aes(x = year, y = fit, group = fac_length, color = fac_length)) +
   geom_line() +
   scale_color_manual(values = cb_palette) +
-  ggtitle("Figure 1: Variation in the budget of movies over the years
-conditioned on their length") +
+  ggtitle("Variation in the budget of movies over the years conditioned on their length") +
   labs(subtitle = "Budgets have been transformed onto log10 scale",
        caption = "Movie length thresholds set at 90 minutes and 120 minutes.",
        color = "Movie length")
 ```
 
-While the budgets of movies shorter than 90 minutes have *mostly* remained unchanged, budgets of movies longer than 90 minutes have increased sharply over time; more so for movies longer than 120 minutes.
+While the budgets of movies shorter than 90 minutes have *mostly* remained unchanged, budgets of movies longer than 90 minutes have increased sharply over time; more so for movies longer than 120 minutes. However, there is a clear drop in the budgets of *short* and *medium* length movies at around 1994 that intuitively makes sense due to the inception of professional movie-making camcorders invented around that time (Sony and Kodak released the first professional consumer friendly camcorders in 1983 and 1984 respectively).
 
 ```{r, include=FALSE}
 # Plot the residuals
-ggplot(movies.lm.df, aes(x = year, y = .resid)) + geom_smooth() +
+ggplot(movies.lo.df, aes(x = year, y = .resid)) + geom_smooth() +
   facet_wrap(~fac_length) + labs(title = "Residual plots")
 ```
 
@@ -148,4 +150,5 @@ ggplot(movies.lm.df, aes(x = year, y = .resid)) + geom_smooth() +
 ```{r}
 wireframe(fit ~ year * fac_length, data=movies.grid.df, screen=list(z=-70, x=-90, y=90))
 ```
-The 3D wireframe plot above confirms our observation that the budget for *long* movies has gone up at a much higher rate than that of the *medium* budget movies over the years, whereas the budget for *short* movies has remained pretty much constant. However, there is a clear dip in the movie budgets for *short* movies at around 1994 marking the use of handycams for making low-budget movies.
+
+The 3D wireframe plot above confirms our observation that the budget for *long* movies has gone up at a much higher rate than that of the *medium* budget movies over the years, whereas the budget for *short* movies has remained pretty much constant. However, there is a clear dip in the movie budgets for *short* and *medium* length movies at around 1994 marking the use of handycams for making low-budget movies.
