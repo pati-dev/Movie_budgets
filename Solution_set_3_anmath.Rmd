@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE, tidy = TRUE)
 library(tidyverse)
 library(GGally)
 library(broom)
+library(lattice)
 cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
@@ -27,10 +28,11 @@ movies = read.csv("movie_budgets.txt", sep = " ")
 movies$log_budget <- log10(movies$budget)
 ```
 
-```{r, include=FALSE}
+```{r}
 # Plot *ggpairs* for all 3 vars
 ggpairs(movies, columns = c("log_budget", "length", "year"))
 ```
+
 
 ```{r, include=FALSE}
 ## Color trivariate plots by year
@@ -53,6 +55,11 @@ movies3 = data.frame(movies, fac_length)
 ggpairs(movies3, columns = c("log_budget", "length", "year"), aes(color = fac_length))
 ```
 
+```{r, include = FALSE}
+ggplot(movies, aes(x=year, y=log_budget)) + geom_point() + geom_smooth()
+ggplot(movies, aes(x=length, y=log_budget)) + geom_point() + geom_smooth()
+```
+
 
 ```{r, include=FALSE}
 # Plot budget against length faceted by year
@@ -72,13 +79,19 @@ ggplot(movies3, aes(x = year, y = log_budget)) + geom_point() +
   labs(title = "Movie budgets vs. year cut by length")
 ```
 
-• The budget of movies seem to follow a linear trend with year, hence we will be fitting a linear model to predict budget from year. Furthermore, there is no reason for us to assume that it should follow a curve anyway. Hence, for the sake of simplicity, more than anything else, we will go ahead with *lm()*.
+I have fitted an ordinary least squares linear model on the given dataset to predict the log value of movie budgets (to the base 10) from their year conditioned on their length. The thresholds for conditioning on length have been set at 90 minutes and 120 minutes, thereby categorizing movies into *short* (<90 minutes), *medium* (90-120 minutes), and *long* (>120 minutes). Below I have mentioned the reasoning behind my modeling choices in choronological order of the steps I followed to fit the model:
+
+• The bivarate plots showcased that budget$1$ seemed to follow a linear trend with length and has high correlation (0.634). Furthermore, low correlation values for budget vs. year and year vs. length suggested that there is no interaction between these pairs of variables.
+
+• The trivariate plot between budget, year, and length demonstrated that longer movies have higher budgets than shorter ones, which intuitively makes sense.
+
+• The conditional plots faceted by length exhibited lines of very different slopes - flat for shorter movies and steep for longer movies. This interaction had to be accounted for in our model. Moreover, coplots by year do not showcase anything interesting.
 
 • The dataset does not have any major outliers. Thus, it makes sense to fit a least squares model (no need for a robust fit).
 
-• Conditional plots faceted by length of movies show lines of very different slopes. We will have to account for this interaction in our model. Moreover, coplots cut by year do not showcase anything interesting.
+• Variance?? Table with details of model??
 
-• There does not seem to be any interaction between year and length of movies.
+$^1$*Technically, log value of budget to the base 10. But for the sake of simplicity in the discussion, I have ignored mentioning the term "log value" repeatedly.*
 
 ```{r}
 # Fit three separate linear models for short, medium and long movies to predict
