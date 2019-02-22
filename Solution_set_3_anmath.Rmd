@@ -13,6 +13,7 @@ library(tidyverse)
 library(GGally)
 library(broom)
 library(lattice)
+library(knitr)
 cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
@@ -28,7 +29,7 @@ movies = read.csv("movie_budgets.txt", sep = " ")
 movies$log_budget <- log10(movies$budget)
 ```
 
-```{r}
+```{r, include=FALSE}
 # Plot *ggpairs* for all 3 vars
 ggpairs(movies, columns = c("log_budget", "length", "year"))
 ```
@@ -73,47 +74,57 @@ ggplot(movies2, aes(x = length, y = log_budget)) + geom_point() +
 ```{r, include = FALSE}
 # Plot budget against year faceted by length
 ggplot(movies3, aes(x = year, y = log_budget)) + geom_point() +
-  geom_smooth(method = "lm") +
+  geom_smooth(method="loess", method.args=list(degree=1), span=0.8) +
   # facet_wrap(~ fac_length) +
-  facet_wrap(~ cut_number(length, n = 3), ncol = 2) +
+  facet_wrap(~ cut_number(length, n = 4), ncol = 2) +
   labs(title = "Movie budgets vs. year cut by length")
 ```
 
-I have fitted an ordinary least squares linear model on the given dataset to predict the log value of movie budgets (to the base 10) from their year conditioned on their length. The thresholds for conditioning on length have been set at 90 minutes and 120 minutes, thereby categorizing movies into *short* (<90 minutes), *medium* (90-120 minutes), and *long* (>120 minutes). Below I have mentioned the reasoning behind my modeling choices in choronological order of the steps I followed to fit the model:
 
-• The bivarate plots showcased that budget$1$ seemed to follow a linear trend with length and has high correlation (0.634). Furthermore, low correlation values for budget vs. year and year vs. length suggested that there is no interaction between these pairs of variables.
-
-• The trivariate plot between budget, year, and length demonstrated that longer movies have higher budgets than shorter ones, which intuitively makes sense.
-
-• The conditional plots faceted by length exhibited lines of very different slopes - flat for shorter movies and steep for longer movies. This interaction had to be accounted for in our model. Moreover, coplots by year do not showcase anything interesting.
-
-• The dataset does not have any major outliers. Thus, it makes sense to fit a least squares model (no need for a robust fit).
-
-• Variance?? Table with details of model??
-
-$^1$*Technically, log value of budget to the base 10. But for the sake of simplicity in the discussion, I have ignored mentioning the term "log value" repeatedly.*
-
-```{r}
-# Fit three separate linear models for short, medium and long movies to predict
+```{r, warning=FALSE}
+# Fit three separate loess models for short, medium and long movies to predict
 # budget from year
 fac_length = rep(NA, nrow(movies))
-fac_length[movies$length < 90] = "short"
-fac_length[(movies$length >= 90) & (movies$length < 120)] = "medium"
-fac_length[movies$length >= 120] = "long"
+fac_length[movies$length < 90] = 1
+fac_length[(movies$length >= 90) & (movies$length < 120)] = 2
+fac_length[movies$length >= 120] = 3
 movies3 = data.frame(movies, fac_length)
 
-movies.lm = lm(log_budget ~ year * fac_length, data = movies3)
-movies.lm.df = augment(movies.lm)
+# movies.lm = lm(log_budget ~ year * fac_length, data = movies3)
+# movies.lm.df = augment(movies.lm)
+
+movies.lo = loess(log_budget ~ year * fac_length, span = 0.97,
+                  family = "gaussian", data = movies3)
+# movies.lo.df = augment(movies.lo)
+
 movies.grid = expand.grid(year = seq(1905, 2005, 1), fac_length =
-                            c("short", "medium", "long"))
-movies.predict = predict(movies.lm, newdata = movies.grid)
+                            c(1, 2, 3))
+# movies.predict = predict(movies.lm, newdata = movies.grid)
+movies.predict = predict(movies.lo, newdata = movies.grid)
 movies.grid.df = data.frame(movies.grid, fit = as.vector(movies.predict))
 ```
 
+I have fitted a locally libear loess model on the given dataset to predict the log value of movie budgets (to the base 10) from their year conditioned on their length. The thresholds for conditioning on length have been set at 90 minutes and 120 minutes, thereby categorizing movies into *short* (<90 minutes), *medium* (90-120 minutes), and *long* (>120 minutes). Below I have mentioned the reasoning behind my modeling choices in choronological order of the steps I followed to fit the model:
+
+• The bivarate plots showcased that budget$1$ seemed to follow a linear trend with length and had high correlation (0.634). Furthermore, low correlation value (-0.08) for length vs. year was a strong hint that there might no interaction between these variables.
+
+• The bivariate plot between budget and year was *almost* linear until 1994, post which it seemed to flatten out a bit. This coincides with the first professional use of camcorder for making movies, which was way cheaper than using the video cameras.
+
+• The trivariate plot between budget, year, and length demonstrated that longer movies have higher budgets than shorter ones, which intuitively makes sense.
+
+• The conditional plots faceted by length exhibited lines of very different slopes - flat for shorter movies and steep for longer movies. This interaction had to be accounted for in our model. Moreover, coplots by year did not showcase anything interesting.
+
+• Finally, I fitted an ordinary least squares linear model and a locally linear loess model with year on the x-axis and budget on the y-axis conditioned on length (to account for the interactions seen previously) and looked at their residual plots. While both the residual plots demonstrated homoskedasticity, the residuals for the loess model were much lesser than those for the OLS model. Hence, I went ahead with the loess fit for predicting movies budgets from year and length.
+
+$^1$*Technically, log value of budget to the base 10. But for the sake of simplicity in the discussion, I have ignored mentioning the term "log value" repeatedly.*
+
+
 # Solution 2
 
-```{r}
+```{r, warning=FALSE}
 # Visualise the model
+movies.grid.df$fac_length <- as.factor(movies.grid.df$fac_length)
+levels(movies.grid.df$fac_length) <- c("short", "medium", "long")
 ggplot(movies.grid.df, aes(x = year, y = fit, group = fac_length, color = fac_length)) +
   geom_line() +
   scale_color_manual(values = cb_palette) +
@@ -126,10 +137,10 @@ conditioned on their length") +
 
 While the budgets of movies shorter than 90 minutes have *mostly* remained unchanged, budgets of movies longer than 90 minutes have increased sharply over time; more so for movies longer than 120 minutes.
 
-```{r, include = FALSE}
+```{r, include=FALSE}
 # Plot the residuals
 ggplot(movies.lm.df, aes(x = year, y = .resid)) + geom_smooth() +
-  facet_wrap(~fac_length) + labs(title = "Residual plot")
+  facet_wrap(~fac_length) + labs(title = "Residual plots")
 ```
 
 # Solution 3
@@ -137,4 +148,4 @@ ggplot(movies.lm.df, aes(x = year, y = .resid)) + geom_smooth() +
 ```{r}
 wireframe(fit ~ year * fac_length, data=movies.grid.df, screen=list(z=-70, x=-90, y=90))
 ```
-The 3D wireframe plot above confirms our observation that the budget for *long* movies has gone up at a much higher rate than that of the *medium* budget movies over the years, whereas the budget for *short* movies has remained pretty much constant.
+The 3D wireframe plot above confirms our observation that the budget for *long* movies has gone up at a much higher rate than that of the *medium* budget movies over the years, whereas the budget for *short* movies has remained pretty much constant. However, there is a clear dip in the movie budgets for *short* movies at around 1994 marking the use of handycams for making low-budget movies.
